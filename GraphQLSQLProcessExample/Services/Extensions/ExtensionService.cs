@@ -10,33 +10,18 @@ namespace GraphQLSQLProcessExample.Services.Extensions;
 
 record ExtensionQueryNodeData(Guid ProcessId, int? Count, string? Json);
 
-record ExtensionCountOnlyData(Guid ProcessId, int Count);
-
 public class ExtensionService(AppDbContext context)
 {
     public async Task<IReadOnlyDictionary<Guid, ExtensionQueryNode?>> GetExtensions(
         IReadOnlyList<Guid> processIds,
         ExtensionWhereInput? filter,
         Pagination<ExtensionOrderByField>? page,
-        SelectedFields selectedFields)
+        SelectedFields<ExtensionQueryNode> selectedFields)
     {
-//         if (selectedFields.ContainsOnly(nameof(ExtensionQueryNode.Count)))
-//         {
-//             var processIdsString = processIds.Select(id => $"'{id}'").Join();
-//             var countSql = $"""
-//                 SELECT ex1.ProcessId, COUNT(*) as Count
-//                 FROM Extensions as ex1
-//                 WHERE ex1.ProcessId IN ({processIdsString})
-//                 GROUP BY ex1.ProcessId
-//             """;
-//             
-//             var counts = await context.Database
-//                 .SqlQueryRaw<ExtensionCountOnlyData>(countSql)
-//                 .ToArrayAsync();
-//             
-//             return processIds.ToFullDictionary(counts
-//                     .Select(data => new ExtensionQueryNode(data.ProcessId, data.Count, Array.Empty<Extension>())),
-//         }
+        if (processIds.Count == 0)
+        {
+            return processIds.ToFullDictionary(Array.Empty<ExtensionQueryNode?>(), p => p.ProcessId);
+        }
         
         var sql = new StringBuilder();
         sql.AppendLine("SELECT");
@@ -46,9 +31,9 @@ public class ExtensionService(AppDbContext context)
         sqlSelect.Add(GetCountSql(selectedFields, filter));
         sqlSelect.Add(GetExtensionsSql(selectedFields, filter, page));
 
-        sql.AppendLine(string.Join(", ", sqlSelect));
+        sql.AppendLine(sqlSelect.JoinLines());
         sql.AppendLine("FROM Extensions as ex1");
-        
+
         var rawProcessIds = processIds.Select(id => $"'{id}'").Join();
         sql.AppendLine($"WHERE ex1.ProcessId IN ({rawProcessIds})");
 
@@ -58,41 +43,47 @@ public class ExtensionService(AppDbContext context)
         {
             groupBy.Add("ex1.Name");
         }
-        var filters = GetExtensionsSqlFilters(filter, page, "ex1", $"GROUP BY {groupBy.Join()}");
-        sql.AppendLine(filters);
+
+        sql.AppendLine(GetExtensionsSqlFilter(filter, "ex1"));
+        sql.AppendLine(GetPaginationQuery(page, $"GROUP BY {groupBy.Join()}"));
 
         var rawSql = sql.ToString();
         var extensions = await context.Database
             .SqlQueryRaw<ExtensionQueryNodeData>(rawSql)
             .ToArrayAsync();
 
+        // the ToFullDictionary is required to return a dictionary with all the keys
+        // As a result, the GraphQL resolver will not fail and return null for the keys with missing values
         return processIds.ToFullDictionary(extensions
                 .Select(MapDataToViewModel),
             p => p.ProcessId);
     }
 
-    private string GetExtensionsSql(SelectedFields selectedFields, ExtensionWhereInput? filter,
+    private string GetExtensionsSql(
+        SelectedFields<ExtensionQueryNode> selectedFields,
+        ExtensionWhereInput? filter,
         Pagination<ExtensionOrderByField>? page)
     {
-        return selectedFields.Contains(nameof(ExtensionQueryNode.Extensions))
+        return selectedFields.Contains(o => o.Extensions)
             ? $"""
                (SELECT Id, Name
                   FROM Extensions as ex2
                   WHERE ex2.ProcessId = ex1.ProcessId
-                  {GetExtensionsSqlFilters(filter, page, "ex2")}
+                  {GetExtensionsSqlFilter(filter, "ex2")}
+                  {GetPaginationQuery(page)}
                   FOR JSON PATH) as Json
                """
             : "null as Json";
     }
 
-    private string GetCountSql(SelectedFields selectedFields, ExtensionWhereInput? filter)
+    private string GetCountSql(SelectedFields<ExtensionQueryNode> selectedFields, ExtensionWhereInput? filter)
     {
-        return selectedFields.Contains(nameof(ExtensionQueryNode.Count))
+        return selectedFields.Contains(o => o.Count)
             ? $"""
                (SELECT COUNT(*)
                   FROM Extensions as ex2
                   WHERE ex2.ProcessId = ex1.ProcessId
-                  {GetExtensionsSqlFilters(filter, null, "ex2")}) AS Count
+                  {GetExtensionsSqlFilter(filter, "ex2")}) AS Count
                """
             : "null as Count";
     }
@@ -109,25 +100,30 @@ public class ExtensionService(AppDbContext context)
         return new ExtensionQueryNode(processId, count ?? 0, extensions);
     }
 
-    private string GetExtensionsSqlFilters(
+    private string GetExtensionsSqlFilter(
         ExtensionWhereInput? filter,
+        string tableAlias)
+    {
+        if (filter is not null)
+        {
+            return $"AND {tableAlias}.Name like '%{filter.Filter}%'";
+        }
+
+        return string.Empty;
+    }
+
+    public string GetPaginationQuery(
         Pagination<ExtensionOrderByField>? page,
-        string tableAlias,
         string? suffix = null)
     {
         var sql = new StringBuilder();
-        if (filter is not null)
-        {
-            sql.AppendLine($"AND {tableAlias}.Name like '%{filter.Filter}%'");
-        }
-
         if (page is not null)
         {
             if (suffix is not null)
             {
                 sql.AppendLine(suffix);
             }
-            
+
             sql.AppendLine($"ORDER BY {page.OrderBy} {page.OrderDirection}");
             sql.AppendLine($"OFFSET {page.Page * page.Size} ROWS FETCH NEXT {page.Size} ROWS ONLY");
         }

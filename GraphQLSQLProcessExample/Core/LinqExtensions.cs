@@ -27,4 +27,10 @@ public static class LinqExtensions
     {
         return string.Join(separator, values);
     }
+    
+    public static string JoinLines(this IEnumerable<string> values, string separator = ", ")
+    {
+        var newSeparator = $"{separator}{Environment.NewLine}";
+        return string.Join(newSeparator, values);
+    }
 }

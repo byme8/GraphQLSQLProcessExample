@@ -16,7 +16,7 @@ public class ExtensionQueryNodeForProcess
         Pagination<ExtensionOrderByField>? page,
         IResolverContext context)
     {
-        var selectedFields = context.SelectedFields();
+        var selectedFields = context.SelectedFields<ExtensionQueryNode>();
         return await context.BatchDataLoader<Guid, ExtensionQueryNode?>((ids, _) =>
                 service.GetExtensions(ids, where, page, selectedFields))
             .LoadAsync(processViewModel.Id);

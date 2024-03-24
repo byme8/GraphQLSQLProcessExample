@@ -1,51 +1,23 @@
-﻿using System.Runtime.CompilerServices;
-using HotChocolate.Execution.Processing;
+﻿using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 
 namespace GraphQLSQLProcessExample.Core;
 
-public class SelectedFields(string[] selectedFields)
-{
-    public HashSet<string> Fields { get; } = new(selectedFields);
-
-    public bool Contains(string value, [CallerArgumentExpression(nameof(value))] string selector = null!)
-    {
-        var dotIndex = selector.IndexOf('.');
-        if (dotIndex > 0)
-        {
-            var text = selector.Substring(dotIndex).ToLower();
-            return Fields.Contains(text);
-        }
-        
-        return Fields.Contains(selector);
-    }
-    
-    public bool ContainsOnly<T>(T value, [CallerArgumentExpression(nameof(value))] string selector = null!)
-    {
-        if (Fields.Count != 1)
-        {
-            return false;
-        }
-        
-        return Contains(value, selector);
-    }
-}
-
 public static class GraphQLExtensions
 {
-    public static SelectedFields SelectedFields(this IResolverContext context)
+    public static SelectedFields<T> SelectedFields<T>(this IResolverContext context)
     {
         if (context.Selection is not Selection selection)
         {
-            return new SelectedFields(Array.Empty<string>());
+            return new SelectedFields<T>(Array.Empty<string>());
         }
 
         var fields = GetFields(selection.SelectionSet)
             .Select(o => o.ToLowerInvariant())
             .ToArray();
 
-        return new SelectedFields(fields);
+        return new SelectedFields<T>(fields);
     }
     
     private static IEnumerable<string> GetFields(SelectionSetNode? selectionSelectionSet, string? parentField = null)

@@ -1,20 +1,20 @@
 using GraphQLSQLProcessExample.Data;
-using GraphQLSQLProcessExample.Services;
 using GraphQLSQLProcessExample.Services.Extensions;
 using GraphQLSQLProcessExample.Services.Process;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
+var configuration = builder.Configuration;
 
 services.AddGraphQLServer()
     .AddGraphQLSQLProcessExampleTypes();
 
-services.AddDbContextPool<AppDbContext>(options =>
-{
-    options.UseSqlServer(
-        @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=ProcessDB;Integrated Security=SSPI");
-});
+var connectionString = configuration.GetValue<string>("DB_CONNECTION")!;
+services.AddSingleton(o => new DBConfig(connectionString));
+services.AddScoped<DapperContext>();
+
+services.AddDbContextPool<AppDbContext>(options => { options.UseSqlServer(connectionString); });
 
 services.AddScoped<ProcessService>();
 services.AddScoped<ExtensionService>();

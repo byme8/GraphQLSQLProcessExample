@@ -1,3 +1,10 @@
 ﻿namespace GraphQLSQLProcessExample.Services.Extensions.Models;
 
-public record ExtensionQueryNode(Guid ProcessId, int Count, Extension[] Extensions);
+public class ExtensionQueryNode
+{
+    public Guid ProcessId { get; set; }
+
+    public int Count { get; set; }
+
+    public Extension[] Extensions { get; set; }
+}

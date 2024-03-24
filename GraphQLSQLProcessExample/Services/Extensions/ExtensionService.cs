@@ -51,7 +51,9 @@ public class ExtensionService(DapperContext context)
             var extensions = extensionsData
                 .ToDictionary(
                     o => o.ProcessId,
-                    o => JsonSerializer.Deserialize<Extension[]>(o.Json));
+                    o => string.IsNullOrEmpty(o.Json)
+                        ? Array.Empty<Extension>() 
+                        : JsonSerializer.Deserialize<Extension[]>(o.Json));
 
             foreach (var extension in extensions)
             {

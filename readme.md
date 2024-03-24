@@ -39,21 +39,16 @@ query GetProcessesWithExtensionCount {
 As result, we would have two SQL queries:
 ``` sql
 SELECT Id, Name from Processes
-      ORDER BY Name Desc
-      OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY
+ORDER BY Name Desc
+OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY
+```
 
-SELECT
-      ex1.ProcessId, 
-      (SELECT COUNT(*)
-         FROM Extensions as ex2
-         WHERE ex2.ProcessId = ex1.ProcessId
-         AND ex2.Name like '%1f%'
-      ) AS Count,
-      null as Json
-      FROM Extensions as ex1
-      WHERE ex1.ProcessId IN ('9fc76a22-6170-4169-d87e-08dc4b700e94', 'd3fa902a-8dd4-4006-d8a0-08dc4b700e94', '4938eb0e-ec31-49a4-d891-08dc4b700e94', '89df7eb8-d6fc-47e4-d8ab-08dc4b700e94', '5fd386cb-586c-42bd-d86c-08dc4b700e94')
-      AND ex1.Name like '%1f%'
-      GROUP BY ex1.ProcessId, ex1.Name
+``` sql
+select ProcessId, count(*)
+from Extensions
+where ProcessId in @ProcessIds
+AND Name like '%1f%'
+group by ProcessId;
 ```
 
 Get processes and extention names with filter:
@@ -76,20 +71,15 @@ As result, we would have two SQL queries:
 SELECT Id, Name from Processes
 ORDER BY Name Desc
 OFFSET 0 ROWS FETCH NEXT 5 ROWS ONLY
+```
 
-SELECT
-ex1.ProcessId,
-null as Count,
-(SELECT Id, Name
-    FROM Extensions as ex2
-    WHERE ex2.ProcessId = ex1.ProcessId
-    AND ex2.Name like '%1f%'
-
-    FOR JSON PATH) as Json
-FROM Extensions as ex1
-WHERE ex1.ProcessId IN ('e6dda4d6-2a97-4878-d887-08dc4b700e94', 'b5d37d30-f7c3-4b31-d860-08dc4b700e94', '4f6c88b7-be3b-4d65-d872-08dc4b700e94', 'af820d81-28cc-4de3-d8b5-08dc4b700e94', 'fb60c551-d01c-410b-d862-08dc4b700e94')
-AND ex1.Name like '%1f%'
-GROUP BY ex1.ProcessId, ex1.Name
+``` sql
+select ProcessId,
+       Id,
+       Name
+from Extensions
+where ProcessId in @ProcessIds
+   AND Name like '%1f%'
 ```
 
 Fetch processes, exntensions count and names with filter and pagination:
@@ -113,25 +103,21 @@ SQL:
 SELECT Id, Name from Processes
 ORDER BY Name Desc
 OFFSET 0 ROWS FETCH NEXT 5 ROWS ONLY
+```
 
-SELECT
-ex1.ProcessId,
-(SELECT COUNT(*)
-    FROM Extensions as ex2
-    WHERE ex2.ProcessId = ex1.ProcessId
-    AND ex2.Name like '%1f%') AS Count,
-(SELECT Id, Name
-    FROM Extensions as ex2
-    WHERE ex2.ProcessId = ex1.ProcessId
-    AND ex2.Name like '%1f%'
-    ORDER BY Name Asc
-OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
+``` sql
+select ProcessId, count(*)
+from Extensions
+where ProcessId in @ProcessIds
+AND Name like '%1f%'
+group by ProcessId;
 
-    FOR JSON PATH) as Json
-FROM Extensions as ex1
-WHERE ex1.ProcessId IN ('e6dda4d6-2a97-4878-d887-08dc4b700e94', 'b5d37d30-f7c3-4b31-d860-08dc4b700e94', '4f6c88b7-be3b-4d65-d872-08dc4b700e94', 'af820d81-28cc-4de3-d8b5-08dc4b700e94', 'fb60c551-d01c-410b-d862-08dc4b700e94')
-AND ex1.Name like '%1f%'
-GROUP BY ex1.ProcessId, ex1.Name
-ORDER BY Name Asc
+select ProcessId,
+       Id,
+       Name
+from Extensions
+where ProcessId in @ProcessIds
+   AND Name like '%1f%'
+   ORDER BY Name Asc
 OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
 ```

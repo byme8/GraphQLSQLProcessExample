@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using Dapper;
 using GraphQLSQLProcessExample.Core;
 using GraphQLSQLProcessExample.Data;
@@ -46,14 +47,11 @@ public class ExtensionService(DapperContext context)
 
         if (selectedFields.Contains(o => o.Extensions))
         {
-            var extensionsData = await dataset.ReadAsync<(Guid ProcessId, Guid Id, string Name)>();
+            var extensionsData = await dataset.ReadAsync<(Guid ProcessId, string Json)>();
             var extensions = extensionsData
-                .GroupBy(o => o.ProcessId)
                 .ToDictionary(
-                    o => o.Key,
-                    o => o
-                        .Select(e => new Extension(e.Name))
-                        .ToArray());
+                    o => o.ProcessId,
+                    o => JsonSerializer.Deserialize<Extension[]>(o.Json));
 
             foreach (var extension in extensions)
             {
@@ -85,12 +83,16 @@ public class ExtensionService(DapperContext context)
         return selectedFields.Contains(o => o.Extensions)
             ? $"""
                select ProcessId,
-                      Id,
-                      Name
-               from Extensions
+                      (select Id, 
+                              Name 
+                       from Extensions 
+                       where ProcessId = e.ProcessId
+                      {GetExtensionsSqlFilter(filter)}
+                      {GetPaginationQuery(page)}
+                       for json auto) as Json
+               from Extensions e
                where ProcessId in @ProcessIds
-                  {GetExtensionsSqlFilter(filter)}
-                  {GetPaginationQuery(page)}
+               group by ProcessId;
                """
             : string.Empty;
     }

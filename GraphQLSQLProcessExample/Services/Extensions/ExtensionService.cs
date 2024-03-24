@@ -60,7 +60,7 @@ public class ExtensionService(DapperContext context)
                 var node = results.GetValueOrDefault(extension.Key);
                 if (node is not null)
                 {
-                    node.Extensions = extension.Value;
+                    node.Extensions = extension.Value ?? Array.Empty<Extension>();
                 }
 
                 if (node is null)
@@ -68,7 +68,7 @@ public class ExtensionService(DapperContext context)
                     results[extension.Key] = new ExtensionQueryNode
                     {
                         ProcessId = extension.Key,
-                        Extensions = extension.Value
+                        Extensions = extension.Value ?? Array.Empty<Extension>()
                     };
                 }
             }
